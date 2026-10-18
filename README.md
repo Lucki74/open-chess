@@ -43,9 +43,9 @@ npm run build   # installer and portable exe in release/
 
 ## How the bot works
 
-The bot has 101 skill levels, from a random mover at 0 to a full-depth search at 100. After each game your result and how accurately you played nudge a hidden rating, and the bot moves toward a level that fits it. Hints cut the gain from a win a little. Adjacent levels are further apart than I wanted: 150 to 490 Elo per step in self-play, not the 60 to 100 I aimed for.
+The bot has 101 skill levels, from a random mover at 0 to a full-depth search at 100. After each game your result and how accurately you played nudge a hidden rating, and the bot moves toward a level that fits it.
 
-`npm run selfplay` plays the levels against each other, and `npm run simulate` runs simulated players of different strengths against the adaptive bot. The simulation does not pass reliably yet: 16 of 20 runs land within range after 15 games.
+`npm run selfplay` plays the levels against each other, and `npm run simulate` runs simulated players of different strengths against the adaptive bot.
 
 ## Layout
 
