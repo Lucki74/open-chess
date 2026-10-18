@@ -10,19 +10,27 @@ import {
   BLEND_RESULT,
   BOT_OFFSET,
   CP_LOSS_CAP,
-  K_END,
-  K_START,
+  GAIN_MIN,
   LOSS_STREAK_2_ADJ,
   LOSS_STREAK_3_ADJ,
   MAX_RATING_STEP,
   RATING_MAX,
   RATING_MIN,
+  RESULT_TARGET_MAX,
   RD_IDLE_GROWTH,
   RD_MAX,
   START_RATING,
   WIN_STREAK_3_ADJ,
 } from '../src/skill/constants'
-import { acplToElo, cpLoss, expectedScore, initialPlayerState, kFactor, updateAfterGame } from '../src/skill/rating'
+import {
+  acplToElo,
+  acplWeight,
+  cpLoss,
+  expectedScore,
+  initialPlayerState,
+  kFactor,
+  updateAfterGame,
+} from '../src/skill/rating'
 import type { GameSummary, PlayerState, RecentGame } from '../src/skill/types'
 
 const DAY = 86_400_000
@@ -53,32 +61,41 @@ describe('rating formula', () => {
     expect(expectedScore(1600, 1500) + expectedScore(1500, 1600)).toBeCloseTo(1, 10)
   })
 
-  test('K starts at 64, decays to 24 after 15 games and stays there', () => {
-    expect(kFactor(0)).toBe(K_START)
-    expect(kFactor(15)).toBe(K_END)
-    expect(kFactor(100)).toBe(K_END)
-    expect(kFactor(7.5)).toBeCloseTo((K_START + K_END) / 2, 10)
+  test('gain is 1 / (games + 1) and never below GAIN_MIN', () => {
+    expect(kFactor(0)).toBe(1)
+    expect(kFactor(1)).toBeCloseTo(0.5, 10)
+    expect(kFactor(9)).toBeCloseTo(0.1, 10)
+    expect(kFactor(100)).toBe(GAIN_MIN)
+    expect(kFactor(1000)).toBe(GAIN_MIN)
   })
 
-  test('result-only update follows K * (S - E) once placement is over', () => {
+  test('result-only update moves toward the result target by the gain', () => {
     const s = stateWith({ rating: 1000, games: 15, lastGameAt: null })
     const win = updateAfterGame(s, summary({ result: 1, botElo: 1000, plies: 60, endedAt: 0 }))
-    expect(win.delta).toBeCloseTo(K_END * 0.5, 6)
-    expect(win.state.rating).toBeCloseTo(1000 + K_END * 0.5, 6)
+    const target = 1000 + 0.5 / ((Math.LN10 / 400) * 0.25)
+    expect(win.delta).toBeCloseTo(kFactor(15) * (target - 1000), 6)
+    expect(win.state.rating).toBeCloseTo(1000 + kFactor(15) * (target - 1000), 6)
     expect(win.state.games).toBe(16)
   })
 
-  test('placement games use a larger step', () => {
+  test('first game is a full step toward its target, capped at MAX_RATING_STEP', () => {
     const fresh = initialPlayerState()
     const win = updateAfterGame(fresh, summary({ result: 1, botElo: START_RATING, plies: 60 }))
-    expect(win.delta).toBeCloseTo(K_START * 1.5 * 0.5, 6)
+    expect(win.delta).toBe(MAX_RATING_STEP)
+  })
+
+  test('result target is capped at RESULT_TARGET_MAX away from the rating', () => {
+    const s = stateWith({ rating: 1000, games: 0 })
+    const win = updateAfterGame(s, summary({ result: 1, botElo: 3000, plies: 60 }))
+    expect(win.state.rating).toBeLessThanOrEqual(1000 + RESULT_TARGET_MAX)
   })
 
   test('ACPL blends in with the BLEND_RESULT and BLEND_ACPL weights', () => {
     const s = stateWith({ rating: 1000, games: 15 })
     const r = updateAfterGame(s, summary({ result: 0.5, acpl: 40, botElo: 1000, plies: 60 }))
-    const expectedCandidate = BLEND_RESULT * 1000 + BLEND_ACPL * acplToElo(40)
-    expect(r.state.rating).toBeCloseTo(expectedCandidate, 6)
+    const resultTarget = 1000 // draw at equal rating: no result pull
+    const target = BLEND_RESULT * resultTarget + BLEND_ACPL * acplToElo(40)
+    expect(r.state.rating).toBeCloseTo(1000 + kFactor(15) * (target - 1000), 6)
   })
 
   test('a single game never moves the rating more than MAX_RATING_STEP', () => {
@@ -265,5 +282,19 @@ describe('mid-game easing', () => {
     expect(st.easing).toBe(false)
     for (let p = 0; p < 10; p++) st = t.observe(-900, 20 + p)
     expect(st.easing).toBe(false)
+  })
+})
+
+describe('ACPL taper', () => {
+  test('ACPL weight is full up to 1400 and zero from 1800', () => {
+    expect(acplWeight(1000)).toBeCloseTo(BLEND_ACPL)
+    expect(acplWeight(1400)).toBeCloseTo(BLEND_ACPL)
+    expect(acplWeight(1800)).toBe(0)
+    expect(acplWeight(2000)).toBe(0)
+  })
+
+  test('ACPL weight falls linearly between 1400 and 1800', () => {
+    expect(acplWeight(1600)).toBeCloseTo(BLEND_ACPL / 2)
+    expect(acplWeight(1500)).toBeCloseTo(BLEND_ACPL * 0.75)
   })
 })

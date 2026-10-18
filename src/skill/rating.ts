@@ -1,18 +1,16 @@
 import {
   ACPL_ELO_CURVE,
+  ACPL_TAPER_FULL_ELO,
+  ACPL_TAPER_ZERO_ELO,
   BLEND_ACPL,
-  BLEND_RESULT,
   BLUNDER_ELO_PER_RATE,
   CP_LOSS_CAP,
   HINT_GAIN_MAX_PENALTY,
   HINT_GAIN_STEP,
-  K_DECAY_GAMES,
-  K_END,
-  K_START,
+  GAIN_MIN,
+  RESULT_TARGET_MAX,
   MATE_CLAMP_CP,
   MAX_RATING_STEP,
-  PLACEMENT_GAMES,
-  PLACEMENT_K_MULT,
   RATING_MAX,
   RATING_MIN,
   RD_GAME_DECAY,
@@ -62,10 +60,18 @@ export function acplToElo(acpl: number): number {
   return c[c.length - 1]![1]
 }
 
-/** K decays linearly from K_START to K_END over K_DECAY_GAMES games. */
+/**
+ * ACPL weight at a given rating: BLEND_ACPL up to ACPL_TAPER_FULL_ELO, linear to 0 at ACPL_TAPER_ZERO_ELO.
+ * Measured ACPL is flat above about skill 60 (docs/acpl.txt), so it carries little rating information there.
+ */
+export function acplWeight(rating: number): number {
+  const t = (ACPL_TAPER_ZERO_ELO - rating) / (ACPL_TAPER_ZERO_ELO - ACPL_TAPER_FULL_ELO)
+  return BLEND_ACPL * Math.max(0, Math.min(1, t))
+}
+
+/** Learning gain for the next game: 1 / (games + 1), never below GAIN_MIN. */
 export function kFactor(games: number): number {
-  const t = Math.min(1, games / K_DECAY_GAMES)
-  return K_START + (K_END - K_START) * t
+  return Math.max(GAIN_MIN, 1 / (games + 1))
 }
 
 /** Expected player score against a bot of the given Elo. */
@@ -89,31 +95,33 @@ function growRd(rd: number, lastGameAt: number | null, now: number): number {
 
 /**
  * Rating update after one game (spec 7.3). Pure: `summary.endedAt` is the clock.
- * Result term: rating + K * (S - E), short losses weigh more, placement K is larger.
- * Blended 0.6 / 0.4 with the ACPL estimate when analysis exists.
- * The positive part is cut by hints used. The total change is clamped to +-MAX_RATING_STEP.
+ * Result target: the rating at which this game would have been exactly expected (short losses weigh more).
+ * Blended with the ACPL target when analysis exists; the ACPL weight is tapered by rating (acplWeight).
+ * The step is kFactor(games) * (target - rating); the positive part is cut by hints used.
+ * The total change is clamped to +-MAX_RATING_STEP.
  */
 export function updateAfterGame(state: PlayerState, summary: GameSummary): UpdateResult {
   const rating = state.rating
   const expected = expectedScore(rating, summary.botElo)
   const diff = summary.result - expected
 
-  let k = kFactor(state.games)
-  if (state.games < PLACEMENT_GAMES) k *= PLACEMENT_K_MULT
   // Quick loss: the bot was too hard. Lost ground counts more.
   const quickLoss = summary.result === 0 && summary.plies < SHORT_LOSS_PLIES
   const weighted = diff < 0 && quickLoss ? diff * SHORT_LOSS_MULT : diff
-  const resultRating = rating + k * weighted
+  // Result target in Elo: the rating that would make this game's score exactly expected.
+  const slope = (Math.LN10 / 400) * expected * (1 - expected)
+  const resultTarget = rating + clamp(weighted / slope, -RESULT_TARGET_MAX, RESULT_TARGET_MAX)
 
-  let candidate = resultRating
+  let target = resultTarget
   if (summary.acpl !== null) {
     const moves = Math.max(1, Math.ceil(summary.plies / 2))
     const blunderRate = Math.min(1, summary.blunders / moves)
     const acplElo = acplToElo(summary.acpl) - BLUNDER_ELO_PER_RATE * blunderRate
-    candidate = BLEND_RESULT * resultRating + BLEND_ACPL * acplElo
+    const w = acplWeight(rating)
+    target = (1 - w) * resultTarget + w * acplElo
   }
 
-  let delta = candidate - rating
+  let delta = kFactor(state.games) * (target - rating)
   if (delta > 0) {
     const hintPenalty = Math.min(HINT_GAIN_MAX_PENALTY, HINT_GAIN_STEP * summary.hintsUsed)
     delta *= 1 - hintPenalty

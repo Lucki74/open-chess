@@ -13,15 +13,18 @@ export const TARGET_SCORE = 0.55
 /** Blend of result-based update and ACPL-based estimate. */
 export const BLEND_RESULT = 0.75
 export const BLEND_ACPL = 0.25
+/** ACPL weight is full up to ACPL_TAPER_FULL_ELO and zero from ACPL_TAPER_ZERO_ELO on (linear in between). */
+export const ACPL_TAPER_FULL_ELO = 1400
+export const ACPL_TAPER_ZERO_ELO = 1800
 
-/** K-factor: starts at K_START, decays linearly to K_END over K_DECAY_GAMES games. */
-export const K_START = 64
-export const K_END = 24
-export const K_DECAY_GAMES = 15
+/**
+ * Learning gain: after n games the rating closes 1 / (n + 1) of the gap to that game's target
+ * (a running average, so the prior fades out). Never below GAIN_MIN so the rating keeps tracking.
+ */
+export const GAIN_MIN = 0.04
 
-/** First games are silent placement: larger steps. */
-export const PLACEMENT_GAMES = 3
-export const PLACEMENT_K_MULT = 1.5
+/** Result target is capped this far from the rating (Elo). */
+export const RESULT_TARGET_MAX = 600
 
 /** Max change of the rating per game (absolute Elo). */
 export const MAX_RATING_STEP = 150
