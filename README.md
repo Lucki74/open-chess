@@ -1,4 +1,5 @@
 <div align="center">
+<img width="96" height="96" alt="icon" src="https://github.com/user-attachments/assets/07fe58ff-3d67-45d3-9f4f-a5e9dbb6e022" />
 
 # open_chess
 
