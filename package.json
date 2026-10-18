@@ -1,0 +1,56 @@
+{
+  "name": "chess",
+  "version": "1.0.0",
+  "description": "Friendly chess with an adaptive bot",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "author": "Lrame",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && electron-builder --win nsis portable",
+    "build:web": "vite build",
+    "test": "node tools/test.mjs",
+    "selfplay": "tsx tools/selfplay.ts",
+    "simulate": "tsx tools/simulate-players.ts"
+  },
+  "devDependencies": {
+    "@fontsource-variable/nunito": "^5.3.0",
+    "@types/node": "^26.6.5",
+    "chess.js": "^1.4.0",
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3",
+    "playwright": "^1.64.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vite-plugin-electron": "^1.1.2",
+    "vite-plugin-electron-renderer": "^1.0.0",
+    "vitest": "^4.1.12"
+  },
+  "build": {
+    "appId": "com.lrame.chess",
+    "productName": "open_chess",
+    "nsis": {
+      "artifactName": "open_chess_installer.${ext}"
+    },
+    "portable": {
+      "artifactName": "open_chess.${ext}"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist",
+      "dist-electron",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
+  }
+}

@@ -1,0 +1,28 @@
+/* Design tokens: every colour, radius and easing used by app.css. */
+:root {
+  --bg: #1f2b24;
+  --panel: #26352c;
+  --panel-2: #2d3f34;
+  --line: #35493d;
+  --text: #eef6e9;
+  --muted: #aac0af;
+  --sq-light: #cdebc3;
+  --sq-dark: #5e9e6b;
+  --win: #7bd88f;
+  --loss: #f28b82;
+  --draw: #f6d56b;
+  --last: rgba(246, 229, 141, 0.55);
+  --dot: rgba(47, 107, 67, 0.35);
+  --hint: #7fd1ff;
+  --check: #ff7a7a;
+  --focus: #fff3a8;
+  --white-fill: #fff8e7;
+  --white-stroke: #2f6b43;
+  --black-fill: #2c5c3f;
+  --black-stroke: #10241a;
+  --r-sq: 6px;
+  --r-board: 20px;
+  --r-panel: 18px;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --gap: 16px;
+}

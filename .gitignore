@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-electron
+release
+shots
+chess_plan.md
+PRODUCT.md
+RELEASING.md
+docs
+.claude
